@@ -1,6 +1,8 @@
 # RabbitMQ C AMQP client library
 
-[![Build Status](https://secure.travis-ci.org/alanxz/rabbitmq-c.png?branch=master)](http://travis-ci.org/alanxz/rabbitmq-c)
+![Build Status](https://github.com/alanxz/rabbitmq-c/actions/workflows/ci.yml/badge.svg)
+
+[![Coverage Status](https://coveralls.io/repos/github/alanxz/rabbitmq-c/badge.svg?branch=master)](https://coveralls.io/github/alanxz/rabbitmq-c?branch=master)
 
 ## Introduction
 
@@ -32,10 +34,10 @@ API documentation for v0.8.0+ can viewed from:
 ### Building and installing
 
 #### Prereqs:
-- [CMake v2.6 or better](http://www.cmake.org/)
+- [CMake v3.12 or better](http://www.cmake.org/)
 - A C compiler (GCC 4.4+, clang, and MSVC are test. Other compilers may also
   work)
-- *Optionally* [OpenSSL](http://www.openssl.org/) v0.9.8+ to enable support for
+- *Optionally* [OpenSSL](http://www.openssl.org/) v1.1.1+ to enable support for
   connecting to RabbitMQ over SSL/TLS
 - *Optionally* [POpt](http://freecode.com/projects/popt) to build some handy
   command-line tools.
@@ -44,13 +46,13 @@ API documentation for v0.8.0+ can viewed from:
 - *Optionally* [Doxygen](http://www.stack.nl/~dimitri/doxygen/) to build
   developer API documentation.
 
-After downloading and extracting the source from a tarball to a directory.
-([see above][Latest Stable Version]), the commands to build rabbitmq-c on most
+After downloading and extracting the source from a tarball to a directory
+([see above](#latest-stable-version)), the commands to build rabbitmq-c on most
 systems are:
 
     mkdir build && cd build
     cmake ..
-    cmake --build [--config Release] .
+    cmake --build . [--config Release]
 
 The --config Release flag should be used in multi-configuration generators e.g.,
 Visual Studio or XCode.
@@ -72,7 +74,7 @@ Other interesting flags that can be passed to CMake:
    ON by default.
 * `BUILD_STATIC_LIBS=ON/OFF` toggles building rabbitmq-c as a static library.
    OFF by default.
-* `BUILD_TESTS=ON/OFF` toggles building test code. ON by default.
+* `BUILD_TESTING=ON/OFF` toggles building test code. ON by default.
 * `BUILD_TOOLS=ON/OFF` toggles building the command line tools. By default
    this is ON if the build system can find the POpt header and library.
 * `BUILD_TOOLS_DOCS=ON/OFF` toggles building the man pages for the command line
@@ -80,22 +82,25 @@ Other interesting flags that can be passed to CMake:
    find the XmlTo utility.
 * `ENABLE_SSL_SUPPORT=ON/OFF` toggles building rabbitmq-c with SSL support. By
    default this is ON if the OpenSSL headers and library can be found.
-* `ENABLE_THREAD_SAFETY=ON/OFF` toggles OpenSSL thread-safety. By default this
-   is ON
 * `BUILD_API_DOCS=ON/OFF` - toggles building the Doxygen API documentation, by
    default this is OFF
+* `RUN_SYSTEM_TESTS=ON/OFF` toggles building the system tests (i.e. tests requiring 
+   an accessible RabbitMQ server instance on localhost), by default this is OFF
 
-#### autotools
+## Building RabbitMQ - Using vcpkg
 
-For legacy purposes, a GNU autotools based build system is also maintained. The required
-utilities you need are autoconf v2.59+, automake v1.9+, libtool v2.2+, and pkg-config.
+You can download and install RabbitMQ using the [vcpkg](https://github.com/Microsoft/vcpkg) 
+dependency manager:
 
-Then the standard autotools build procedure will build rabbitmq-c:
+    git clone https://github.com/Microsoft/vcpkg.git
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg integrate install
+    ./vcpkg install librabbitmq
 
-    autoreconf -i
-    ./configure
-    make
-    make install
+The RabbitMQ port in vcpkg is kept up to date by Microsoft team members and 
+community contributors. If the version is out of date, 
+please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
 
 ## Running the examples
 

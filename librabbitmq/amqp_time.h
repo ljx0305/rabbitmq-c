@@ -1,4 +1,3 @@
-/* vim:set ft=c ts=2 sw=2 sts=2 et cindent: */
 /*
  * Portions created by Alan Antonuk are Copyright (c) 2013-2014 Alan Antonuk.
  * All Rights Reserved.
@@ -27,20 +26,20 @@
 #include <stdint.h>
 
 #if ((defined(_WIN32)) || (defined(__MINGW32__)) || (defined(__MINGW64__)))
-# ifndef WINVER
-#  define WINVER 0x0502
-# endif
-# ifndef WIN32_LEAN_AND_MEAN
-#  define WIN32_LEAN_AND_MEAN
-# endif
-# include <winsock2.h>
+#ifndef WINVER
+#define WINVER 0x0502
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
 #else
-# include <sys/time.h>
+#include <sys/time.h>
 #endif
 
-#define AMQP_MS_PER_S  1000
+#define AMQP_MS_PER_S 1000
 #define AMQP_US_PER_MS 1000
-#define AMQP_NS_PER_S  1000000000
+#define AMQP_NS_PER_S 1000000000
 #define AMQP_NS_PER_MS 1000000
 #define AMQP_NS_PER_US 1000
 
@@ -65,14 +64,13 @@ uint64_t amqp_get_monotonic_timestamp(void);
 
 /* Get a amqp_time_t that is timeout from now.
  * If timeout is NULL, an amqp_time_infinite() is created.
- * If timeout = {0, 0}, an amqp_time_immediate() is created.
  *
  * Returns AMQP_STATUS_OK on success.
  * AMQP_STATUS_INVALID_PARAMETER if timeout is invalid
  * AMQP_STATUS_TIMER_FAILURE if the underlying call to get the current timestamp
  * fails.
  */
-int amqp_time_from_now(amqp_time_t *time, struct timeval *timeout);
+int amqp_time_from_now(amqp_time_t *time, const struct timeval *timeout);
 
 /* Get a amqp_time_t that is seconds from now.
  * If seconds <= 0, then amqp_time_infinite() is created.
@@ -82,9 +80,6 @@ int amqp_time_from_now(amqp_time_t *time, struct timeval *timeout);
  * fails.
  */
 int amqp_time_s_from_now(amqp_time_t *time, int seconds);
-
-/* Create an immediate amqp_time_t */
-amqp_time_t amqp_time_immediate(void);
 
 /* Create an infinite amqp_time_t */
 amqp_time_t amqp_time_infinite(void);

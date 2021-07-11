@@ -1,11 +1,4 @@
-# vim:set ts=2 sw=2 sts=2 et:
-cmake_minimum_required(VERSION 2.6)
-project(rabbitmq-c "C")
-
-# Enable MACOSX_RPATH by default. See: cmake --help-policy CMP0042
-if (POLICY CMP0042)
-  cmake_policy(SET CMP0042 NEW)
-endif()
+cmake_minimum_required(VERSION 3.12...3.18)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -17,35 +10,33 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # 3. If any interfaces have been added since the last public release, then increment age.
 # 4. If any interfaces have been removed since the last public release, then set age to 0.
 
-set(RMQ_SOVERSION_CURRENT   6)
+set(RMQ_SOVERSION_CURRENT   9)
 set(RMQ_SOVERSION_REVISION  1)
-set(RMQ_SOVERSION_AGE       2)
+set(RMQ_SOVERSION_AGE       5)
 
-math(EXPR RMQ_SOVERSION_MAJOR "${RMQ_SOVERSION_CURRENT} - ${RMQ_SOVERSION_AGE}")
-math(EXPR RMQ_SOVERSION_MINOR "${RMQ_SOVERSION_AGE}")
-math(EXPR RMQ_SOVERSION_PATCH "${RMQ_SOVERSION_REVISION}")
+include(VersionFunctions)
+get_library_version(RMQ_VERSION)
+compute_soversion(${RMQ_SOVERSION_CURRENT} ${RMQ_SOVERSION_REVISION} ${RMQ_SOVERSION_AGE} RMQ_SOVERSION)
 
-set(RMQ_VERSION ${RMQ_SOVERSION_MAJOR}.${RMQ_SOVERSION_MINOR}.${RMQ_SOVERSION_PATCH})
-set(RMQ_SOVERSION ${RMQ_SOVERSION_MAJOR})
+project(rabbitmq-c 
+  VERSION ${RMQ_VERSION}
+  DESCRIPTION "C RabbitMQ AMQP client library"
+  LANGUAGES C)
 
-file(STRINGS librabbitmq/amqp.h _API_VERSION_MAJOR REGEX "^#define AMQP_VERSION_MAJOR [0-9]+$")
-file(STRINGS librabbitmq/amqp.h _API_VERSION_MINOR REGEX "^#define AMQP_VERSION_MINOR [0-9]+$")
-file(STRINGS librabbitmq/amqp.h _API_VERSION_PATCH REGEX "^#define AMQP_VERSION_PATCH [0-9]+$")
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
 
-string(REGEX MATCH "[0-9]+" _API_VERSION_MAJOR ${_API_VERSION_MAJOR})
-string(REGEX MATCH "[0-9]+" _API_VERSION_MINOR ${_API_VERSION_MINOR})
-string(REGEX MATCH "[0-9]+" _API_VERSION_PATCH ${_API_VERSION_PATCH})
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
-# VERSION to match what is in autotools
-set(VERSION ${_API_VERSION_MAJOR}.${_API_VERSION_MINOR}.${_API_VERSION_PATCH})
-
-if (CMAKE_GENERATOR MATCHES ".*(Make|Ninja).*"
-    AND NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
-  message(STATUS "CMAKE_BUILD_TYPE not specified. Creating ${CMAKE_BUILD_TYPE} build")
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-include(TestCInline)
 include(CheckSymbolExists)
 include(CheckLibraryExists)
 include(CMakePushCheckState)
@@ -98,15 +89,6 @@ cmake_pop_check_state()
 
 cmake_push_check_state()
 set(CMAKE_REQUIRED_LIBRARIES ${SOCKET_LIBRARIES})
-if (WIN32)
-  check_symbol_exists(htonll Winsock2.h HAVE_HTONLL)
-else (WIN32)
-  check_symbol_exists(htonll arpa/inet.h HAVE_HTONLL)
-endif (WIN32)
-cmake_pop_check_state()
-
-cmake_push_check_state()
-set(CMAKE_REQUIRED_LIBRARIES ${SOCKET_LIBRARIES})
 check_symbol_exists(poll poll.h HAVE_POLL)
 if (NOT HAVE_POLL)
   if (WIN32)
@@ -126,185 +108,66 @@ if (CLOCK_GETTIME_NEEDS_LIBRT OR POSIX_SPAWNP_NEEDS_LIBRT)
   set(LIBRT rt)
 endif()
 
-if (MSVC)
-  set(CMAKE_C_FLAGS "/W4 /nologo ${CMAKE_C_FLAGS}")
-elseif (CMAKE_C_COMPILER_ID MATCHES ".*Clang")
-  set(CMAKE_C_FLAGS "-Wall -Wextra -Wstrict-prototypes -Wno-unused-function -fno-common -fvisibility=hidden ${CMAKE_C_FLAGS}")
-elseif (CMAKE_COMPILER_IS_GNUCC)
-  set(RMQ_C_FLAGS "-Wall -Wextra -Wstrict-prototypes -Wno-unused-function -fno-common")
-  execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
-  if (GCC_VERSION VERSION_GREATER 4.0 OR GCC_VERSION VERSION_EQUAL 4.0)
-      set(RMQ_C_FLAGS "${RMQ_C_FLAGS} -fvisibility=hidden")
-  endif()
-  set(CMAKE_C_FLAGS "${RMQ_C_FLAGS} ${CMAKE_C_FLAGS}")
-endif ()
+option(ENABLE_SSL_SUPPORT "Enable SSL support" ON)
 
-CHECK_C_COMPILER_FLAG("-std=gnu90" HAVE_GNU90)
-if (HAVE_GNU90)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu90")
-else()
-  CHECK_C_COMPILER_FLAG("-std=c90" HAVE_C90)
-  if (HAVE_C90)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c90")
-  endif()
+if (ENABLE_SSL_SUPPORT)
+  find_package(OpenSSL 1.1.1 REQUIRED)
+
+  cmake_push_check_state()
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+  cmake_pop_check_state()
 endif()
 
-option(REGENERATE_AMQP_FRAMING "Regenerate amqp_framing.h/amqp_framing.c sources (for developer use)" OFF)
-mark_as_advanced(REGENERATE_AMQP_FRAMING)
-
-if (REGENERATE_AMQP_FRAMING)
-  find_package(PythonInterp)
-  if (NOT PYTHONINTERP_FOUND)
-    message(FATAL_ERROR "REGENERATE_AMQP_FRAMING requires Python to be available")
-  endif ()
-
-  #Determine Python Version:
-  if(PYTHON_EXECUTABLE)
-    execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
-      "import sys; sys.stdout.write(';'.join([str(x) for x in sys.version_info[:3]]))"
-      OUTPUT_VARIABLE _VERSION
-      RESULT_VARIABLE _PYTHON_VERSION_RESULT
-      ERROR_QUIET)
-    if(NOT _PYTHON_VERSION_RESULT)
-      string(REPLACE ";" "." PYTHON_VERSION_STRING "${_VERSION}")
-      list(GET _VERSION 0 PYTHON_VERSION_MAJOR)
-      list(GET _VERSION 1 PYTHON_VERSION_MINOR)
-      list(GET _VERSION 2 PYTHON_VERSION_PATCH)
-      if(PYTHON_VERSION_PATCH EQUAL 0)
-        # it's called "Python 2.7", not "2.7.0"
-        string(REGEX REPLACE "\\.0$" "" PYTHON_VERSION_STRING "${PYTHON_VERSION_STRING}")
-      endif()
-    else()
-      # sys.version predates sys.version_info, so use that
-      execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c "import sys; sys.stdout.write(sys.version)"
-        OUTPUT_VARIABLE _VERSION
-        RESULT_VARIABLE _PYTHON_VERSION_RESULT
-        ERROR_QUIET)
-      if(NOT _PYTHON_VERSION_RESULT)
-        string(REGEX REPLACE " .*" "" PYTHON_VERSION_STRING "${_VERSION}")
-        string(REGEX REPLACE "^([0-9]+)\\.[0-9]+.*" "\\1" PYTHON_VERSION_MAJOR "${PYTHON_VERSION_STRING}")
-        string(REGEX REPLACE "^[0-9]+\\.([0-9])+.*" "\\1" PYTHON_VERSION_MINOR "${PYTHON_VERSION_STRING}")
-        if(PYTHON_VERSION_STRING MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+.*")
-          string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" PYTHON_VERSION_PATCH "${PYTHON_VERSION_STRING}")
-        else()
-          set(PYTHON_VERSION_PATCH "0")
-        endif()
-      else()
-        # sys.version was first documented for Python 1.5, so assume
-        # this is older.
-        set(PYTHON_VERSION_STRING "1.4")
-        set(PYTHON_VERSION_MAJOR "1")
-        set(PYTHON_VERSION_MAJOR "4")
-        set(PYTHON_VERSION_MAJOR "0")
-      endif()
-    endif()
-    unset(_PYTHON_VERSION_RESULT)
-    unset(_VERSION)
-  endif(PYTHON_EXECUTABLE)
-
-  # If we're running v3.x look for a 2to3 utility
-  if (PYTHON_VERSION_MAJOR GREATER 2)
-    get_filename_component(PYTHON_EXE_DIR ${PYTHON_EXECUTABLE} PATH)
-    find_program(PYTHON_2TO3_EXECUTABLE
-      NAMES 2to3
-      HINTS ${PYTHON_EXE_DIR}
-      )
-
-    if ("PYTHON_2TO3_EXECUTABLE-NOTFOUND" STREQUAL PYTHON_2TO3_EXECUTABLE)
-      message(FATAL_ERROR "Unable to find 2to3 python utility, specify python 2.7 or specify 2to3 utility")
-    endif ()
-  endif (PYTHON_VERSION_MAJOR GREATER 2)
-
-
-  #check for json or simplejson
-  execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import json"
-    RESULT_VARIABLE CHECK_PYTHON_JSON_FAILED
-  )
-
-  if (CHECK_PYTHON_JSON_FAILED)
-    execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import simplejson"
-      RESULT_VARIABLE CHECK_PYTHON_SIMPLEJSON_FAILED
-    )
-
-    if (CHECK_PYTHON_SIMPLEJSON_FAILED)
-      message(FATAL_ERROR "REGENERATE_AMQP_FRAMING requires a python with json or simplejson modules")
-    endif (CHECK_PYTHON_SIMPLEJSON_FAILED)
-  endif (CHECK_PYTHON_JSON_FAILED)
-
-
-  find_path(AMQP_CODEGEN_DIR
-    amqp_codegen.py
-    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/codegen
-          ${CMAKE_CURRENT_SOURCE_DIR}/rabbitmq-codegen
-          ${CMAKE_CURRENT_SOURCE_DIR}/../rabbitmq-codegen
-          DOC "Path to directory containing amqp_codegen.py (rabbitmq-codegen)"
-          NO_DEFAULT_PATH
-          )
-
-  if (AMQP_CODEGEN_DIR STREQUAL "AMQP_CODEGEN_DIR-NOTFOUND")
-    message(SEND_ERROR "REGENERATE_AMQP_FRAMING requires the amqp_codegen.py script. If this is a git clone you can:\n\ngit submodule init\ngit submodule update\n\n Or set AMQP_CODEGEN_DIR to directory containing amqp_codegen.py")
-  else ()
-    message(STATUS "Found amqp_codegen.py in ${AMQP_CODEGEN_DIR}")
-  endif()
-endif (REGENERATE_AMQP_FRAMING)
-
-find_package(POPT)
-find_package(XmlTo)
-find_package(Doxygen)
-
-if (POPT_FOUND AND XmlTo_FOUND)
-  set(DO_DOCS ON)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+  include(CTest)
 endif()
 
-find_package(Threads)
+include(CMakeDependentOption)
 
 option(BUILD_SHARED_LIBS "Build rabbitmq-c as a shared library" ON)
 option(BUILD_STATIC_LIBS "Build rabbitmq-c as a static library" ON)
 
-option(BUILD_EXAMPLES "Build Examples" ON)
-option(BUILD_TOOLS "Build Tools (requires POPT Library)" ${POPT_FOUND})
-option(BUILD_TOOLS_DOCS "Build man pages for Tools (requires xmlto)" ${DO_DOCS})
-option(BUILD_TESTS "Build tests (run tests with make test)" ON)
-option(BUILD_API_DOCS "Build Doxygen API docs" ${DOXYGEN_FOUND})
-option(ENABLE_SSL_SUPPORT "Enable SSL support" ON)
-option(ENABLE_THREAD_SAFETY "Enable thread safety when using OpenSSL" ${Threads_FOUND})
-
-if (ENABLE_SSL_SUPPORT)
-  find_package(OpenSSL 0.9.8 REQUIRED)
-endif()
+option(BUILD_EXAMPLES "Build Examples" OFF)
+option(BUILD_TOOLS "Build Tools (requires POPT Library)" OFF)
+cmake_dependent_option(BUILD_TOOLS_DOCS "Build man pages for tools (requires xmlto)" OFF "BUILD_TOOLS" OFF)
+option(BUILD_API_DOCS "Build Doxygen API docs" OFF)
+option(RUN_SYSTEM_TESTS "Run system tests (i.e. tests requiring an accessible RabbitMQ server instance on localhost)" OFF)
 
 if (NOT BUILD_SHARED_LIBS AND NOT BUILD_STATIC_LIBS)
     message(FATAL_ERROR "One or both of BUILD_SHARED_LIBS or BUILD_STATIC_LIBS must be set to ON to build")
 endif()
 
+set(targets_export_name rabbitmq-targets)
+
 add_subdirectory(librabbitmq)
 
-if (BUILD_EXAMPLES)
+if(BUILD_EXAMPLES)
+  if(NOT BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "Examples require -DBUILD_SHARED_LIBS=ON")
+  endif()
   add_subdirectory(examples)
-endif ()
+endif()
 
-if (BUILD_TOOLS)
-  if (POPT_FOUND)
-    add_subdirectory(tools)
-  else ()
-    message(WARNING "POpt library was not found. Tools will not be built")
-  endif ()
-endif ()
+if(BUILD_TOOLS)
+  find_package(POPT REQUIRED)
+  if(BUILD_TOOLS_DOCS)
+    find_package(XMLTO REQUIRED)
+  endif()
+  add_subdirectory(tools)
+endif()
 
-if (BUILD_TESTS)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
   if (NOT BUILD_STATIC_LIBS)
     message(FATAL_ERROR
       "Tests can only be built against static libraries "
       "(set BUILD_STATIC_LIBS=ON)")
   endif ()
-  enable_testing()
   add_subdirectory(tests)
-endif (BUILD_TESTS)
+endif ()
 
 if (BUILD_API_DOCS)
-  if (NOT DOXYGEN_FOUND)
-    message(FATAL_ERROR "Doxygen is required to build the API documentation")
-  endif ()
+  find_package(Doxygen REQUIRED)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/docs/Doxyfile @ONLY)
 
   add_custom_target(docs
@@ -317,14 +180,13 @@ if (BUILD_API_DOCS)
     )
 endif ()
 
-set(libs_private ${SOCKET_LIBRARIES} ${LIBRT})
+foreach (lib ${SOCKET_LIBRARIES})
+    set(libs_private "${libs_private} -l${lib}")
+endforeach(lib)
+set(libs_private "${libs_private} -l${LIBRT}")
 if (ENABLE_SSL_SUPPORT)
-  if (SSL_ENGINE STREQUAL "OpenSSL")
-    set(requires_private "openssl")
-  endif()
-  if (ENABLE_THREAD_SAFETY)
-    set(libs_private ${libs_private} ${CMAKE_THREAD_LIBS_INIT})
-  endif()
+  set(requires_private "openssl")
+  set(libs_private "${libs_private} ${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
 set(prefix ${CMAKE_INSTALL_PREFIX})
@@ -334,6 +196,44 @@ set(includedir "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
 
 configure_file(cmake/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/librabbitmq/config.h)
 configure_file(librabbitmq.pc.in ${CMAKE_CURRENT_BINARY_DIR}/librabbitmq.pc @ONLY)
+
+include(CMakePackageConfigHelpers)
+set(RMQ_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/rabbitmq-c)
+set(project_config "${CMAKE_CURRENT_BINARY_DIR}/rabbitmq-c-config.cmake")
+set(version_config "${CMAKE_CURRENT_BINARY_DIR}/rabbitmq-c-config-version.cmake")
+
+write_basic_package_version_file(
+    "${version_config}"
+    VERSION ${RMQ_VERSION}
+    COMPATIBILITY AnyNewerVersion)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/rabbitmq-c-config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${RMQ_CMAKE_DIR}")
+
+
+if(BUILD_SHARED_LIBS)
+    list(APPEND INSTALL_TARGETS rabbitmq)
+endif()
+if(BUILD_STATIC_LIBS)
+    list(APPEND INSTALL_TARGETS rabbitmq-static)
+endif()
+
+export(TARGETS ${INSTALL_TARGETS} 
+    NAMESPACE rabbitmq:: 
+    FILE ${PROJECT_BINARY_DIR}/${targets_export_name}.cmake)
+
+install(FILES ${project_config} ${version_config}
+    DESTINATION ${RMQ_CMAKE_DIR}
+    COMPONENT rabbitmq-c-development
+    )
+
+install(EXPORT ${targets_export_name} 
+    DESTINATION ${RMQ_CMAKE_DIR}
+    NAMESPACE rabbitmq::
+    COMPONENT rabbitmq-c-development
+    )
 
 install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/librabbitmq.pc

@@ -25,6 +25,12 @@
 
 #include <openssl/bio.h>
 
-BIO_METHOD* amqp_openssl_bio(void);
+int amqp_openssl_bio_init(void);
+
+void amqp_openssl_bio_destroy(void);
+
+typedef const BIO_METHOD *BIO_METHOD_PTR;
+
+BIO_METHOD_PTR amqp_openssl_bio(void);
 
 #endif /* ifndef AMQP_OPENSSL_BIO */

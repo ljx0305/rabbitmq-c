@@ -21,34 +21,30 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #include "amqp_openssl_bio.h"
 #include "amqp_socket.h"
-#include "threads.h"
 
+#include <assert.h>
 #include <errno.h>
 #if ((defined(_WIN32)) || (defined(__MINGW32__)) || (defined(__MINGW64__)))
-# ifndef WIN32_LEAN_AND_MEAN
-#  define WIN32_LEAN_AND_MEAN
-# endif
-# include <winsock2.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
 #else
-# include <sys/types.h>
-# include <sys/socket.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #endif
 
 #ifdef MSG_NOSIGNAL
-# define AMQP_USE_AMQP_BIO
+#define AMQP_USE_AMQP_BIO
 #endif
+
+static int amqp_ssl_bio_initialized = 0;
 
 #ifdef AMQP_USE_AMQP_BIO
 
-#ifdef ENABLE_THREAD_SAFETY
-static pthread_once_t bio_init_once = PTHREAD_ONCE_INIT;
-#endif
-
-static int bio_initialized = 0;
-static BIO_METHOD amqp_bio_method;
+static BIO_METHOD *amqp_bio_method;
 
 static int amqp_openssl_bio_should_retry(int res) {
   if (res == -1) {
@@ -85,7 +81,7 @@ static int amqp_openssl_bio_should_retry(int res) {
   return 0;
 }
 
-static int amqp_openssl_bio_write(BIO* b, const char *in, int inl) {
+static int amqp_openssl_bio_write(BIO *b, const char *in, int inl) {
   int flags = 0;
   int fd;
   int res;
@@ -105,7 +101,7 @@ static int amqp_openssl_bio_write(BIO* b, const char *in, int inl) {
   return res;
 }
 
-static int amqp_openssl_bio_read(BIO* b, char* out, int outl) {
+static int amqp_openssl_bio_read(BIO *b, char *out, int outl) {
   int flags = 0;
   int fd;
   int res;
@@ -124,42 +120,49 @@ static int amqp_openssl_bio_read(BIO* b, char* out, int outl) {
 
   return res;
 }
+#endif /* AMQP_USE_AMQP_BIO */
 
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
-static int BIO_meth_set_write(BIO_METHOD *biom,
-                              int (*wfn)(BIO *, const char *, int)) {
-  biom->bwrite = wfn;
-  return 0;
-}
-
-static int BIO_meth_set_read(BIO_METHOD *biom,
-                              int (*rfn)(BIO *, char *, int)) {
-  biom->bread = rfn;
-  return 0;
-}
-#endif
-
-static void amqp_openssl_bio_init(void) {
-  memcpy(&amqp_bio_method, BIO_s_socket(), sizeof(amqp_bio_method));
-  BIO_meth_set_write(&amqp_bio_method, amqp_openssl_bio_write);
-  BIO_meth_set_read(&amqp_bio_method, amqp_openssl_bio_read);
-
-  bio_initialized = 1;
-}
-
-#endif  /* AMQP_USE_AMQP_BIO */
-
-BIO_METHOD* amqp_openssl_bio(void) {
+int amqp_openssl_bio_init(void) {
+  assert(!amqp_ssl_bio_initialized);
 #ifdef AMQP_USE_AMQP_BIO
-  if (!bio_initialized) {
-#ifdef ENABLE_THREAD_SAFETY
-    pthread_once(&bio_init_once, amqp_openssl_bio_init);
-#else
-    amqp_openssl_bio_init();
-#endif /* ifndef ENABLE_THREAD_SAFETY */
+  if (!(amqp_bio_method = BIO_meth_new(BIO_TYPE_SOCKET, "amqp_bio_method"))) {
+    return AMQP_STATUS_NO_MEMORY;
   }
 
-  return &amqp_bio_method;
+  // casting away const is necessary until
+  // https://github.com/openssl/openssl/pull/2181/, which is targeted for
+  // openssl 1.1.1
+  BIO_METHOD *meth = (BIO_METHOD *)BIO_s_socket();
+  BIO_meth_set_create(amqp_bio_method, BIO_meth_get_create(meth));
+  BIO_meth_set_destroy(amqp_bio_method, BIO_meth_get_destroy(meth));
+  BIO_meth_set_ctrl(amqp_bio_method, BIO_meth_get_ctrl(meth));
+  BIO_meth_set_callback_ctrl(amqp_bio_method, BIO_meth_get_callback_ctrl(meth));
+  BIO_meth_set_read(amqp_bio_method, BIO_meth_get_read(meth));
+  BIO_meth_set_write(amqp_bio_method, BIO_meth_get_write(meth));
+  BIO_meth_set_gets(amqp_bio_method, BIO_meth_get_gets(meth));
+  BIO_meth_set_puts(amqp_bio_method, BIO_meth_get_puts(meth));
+
+  BIO_meth_set_write(amqp_bio_method, amqp_openssl_bio_write);
+  BIO_meth_set_read(amqp_bio_method, amqp_openssl_bio_read);
+#endif
+
+  amqp_ssl_bio_initialized = 1;
+  return AMQP_STATUS_OK;
+}
+
+void amqp_openssl_bio_destroy(void) {
+  assert(amqp_ssl_bio_initialized);
+#ifdef AMQP_USE_AMQP_BIO
+  BIO_meth_free(amqp_bio_method);
+  amqp_bio_method = NULL;
+#endif
+  amqp_ssl_bio_initialized = 0;
+}
+
+BIO_METHOD_PTR amqp_openssl_bio(void) {
+  assert(amqp_ssl_bio_initialized);
+#ifdef AMQP_USE_AMQP_BIO
+  return amqp_bio_method;
 #else
   return BIO_s_socket();
 #endif

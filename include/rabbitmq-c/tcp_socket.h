@@ -1,4 +1,3 @@
-/* vim:set ft=c ts=2 sw=2 sts=2 et cindent: */
 /** \file */
 /*
  * Portions created by Alan Antonuk are Copyright (c) 2013-2014 Alan Antonuk.
@@ -30,10 +29,11 @@
  * A TCP socket connection.
  */
 
-#ifndef AMQP_TCP_SOCKET_H
-#define AMQP_TCP_SOCKET_H
+#ifndef RABBITMQ_C_TCP_SOCKET_H
+#define RABBITMQ_C_TCP_SOCKET_H
 
-#include <amqp.h>
+#include <rabbitmq-c/amqp.h>
+#include <rabbitmq-c/export.h>
 
 AMQP_BEGIN_DECLS
 
@@ -46,10 +46,8 @@ AMQP_BEGIN_DECLS
  *
  * \since v0.4.0
  */
-AMQP_PUBLIC_FUNCTION
-amqp_socket_t *
-AMQP_CALL
-amqp_tcp_socket_new(amqp_connection_state_t state);
+AMQP_EXPORT
+amqp_socket_t *AMQP_CALL amqp_tcp_socket_new(amqp_connection_state_t state);
 
 /**
  * Assign an open file descriptor to a socket object.
@@ -63,11 +61,9 @@ amqp_tcp_socket_new(amqp_connection_state_t state);
  *
  * \since v0.4.0
  */
-AMQP_PUBLIC_FUNCTION
-void
-AMQP_CALL
-amqp_tcp_socket_set_sockfd(amqp_socket_t *self, int sockfd);
+AMQP_EXPORT
+void AMQP_CALL amqp_tcp_socket_set_sockfd(amqp_socket_t *self, int sockfd);
 
 AMQP_END_DECLS
 
-#endif /* AMQP_TCP_SOCKET_H */
+#endif /* RABBITMQ_C_TCP_SOCKET_H */

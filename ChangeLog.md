@@ -1,4 +1,74 @@
 # Change Log
+## v0.11.0 - 2021-03-31
+## Added:
+- rabbitmq-c-config.cmake is now generated (#611)
+- rabbitmq-c can be compiled on Win32 using pthreads (#613)
+- Add amqp_set_ssl_engine API to allow setting OpenSSL engine (#618)
+- Add amqp_ssl_socket_set_key_engine API to allow setting OpenSSL engine (#618)
+- Add support use of password-protected SSL keys (#661)
+
+## Changed
+- Update OpenSSL library initialization to current best practices (#603)
+- Updates to OpenSSL to support v3.0.0 (#654, 627)
+
+## Fixed:
+- OpenSSL symbol clash when compiling on Win32 (#583)
+- Restore correct non-blocking behavior using OpenSSL v1.1.1 (#586)
+- Disable harmless secure CRT compile warnings on Win32 (#588)
+- Fix unused parameter warnings on Win32 (#591)
+- Fix invalid format in generated pkg-config file (#599)
+- Fix invalid AMQP_STATUS_HEARTBEAT_TIMEOUT (#557)
+- Fix incorrect port when using --server flag in CLI tools
+
+## v0.10.0 - 2019-12-01
+## Added:
+- amqp_ssl_socket_get_context can be used to get the current OpenSSL CTX*
+    associated with a connection.
+
+## Changed:
+- openssl: missing OpenSSL config is ignored as an OpenSSL init error (#523)
+- AMQP_DEFAULT_MAX_CHANNELS is now set to 2047 to follow current default channel
+    limit in the RabbitMQ broker. (#513)
+
+## Fixed:
+- add additional input validation to prevent integer overflow when parsing a
+    frame header. This addresses CVE-2019-18609.
+
+
+## v0.9.0 - 2018-05-08
+### Added:
+- amqp-publish: added support for specifying headers via the -H flag
+- Add support for specifying timeout for amqp_login calls via
+  amqp_set_handshake_timeout
+- Add support for specifying timeouts in RPC-style AMQP methods via
+  amqp_set_rpc_timeout
+- Add define for `AMQP_DEFAULT_VHOST`
+- Support for SSL SNI
+- Support for OpenSSL v1.1.0
+
+### Changed:
+- rabbitmq-c now requires Windows Vista or better
+- rabbitmq-c enables TCP keep-alive by default on platforms that support it
+- dropped support for compiling rabbitmq-c without threading support
+- OpenSSL is no longer un-intialized automatically by default. OpenSSL can be
+  explicitly initialized by calling amqp_initialize_ssl_library and
+  uninitialized by calling amqp_uninitialize_ssl_library.
+
+### Fixed:
+- Correct bugs in processing of --url flag in tools (#364).
+- Improve documentation on AMQP_SASL_METHOD_EXTERNAL (#349)
+- Improve support for compiling under mingw-w64
+- Better support for handing SIGPIPE on Linux over SSL (#401)
+- Improve publish performance on Linux by not specifying MSG_MORE on last part
+  of message.
+- Fix connection logic where multiple hostnames won't be tried if connection to
+  doesn't fail immediately (#430)
+
+### Removed:
+- autotools build system has been removed
+- many duplicate amqps_* examples, they did not add a lot of value
+
+
 ## v0.8.0 - 2016-04-09
 ### Added:
 - SSL: peer certificate and hostname validation can now be controlled separately

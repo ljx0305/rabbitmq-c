@@ -71,3 +71,7 @@ tools/doc/man-date.ent
 *.sw?
 .#*
 \#*#
+.venv/
+.cache/
+compile_commands.json
+codegen/

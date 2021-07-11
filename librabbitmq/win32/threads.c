@@ -1,4 +1,3 @@
-/* vim:set ft=c ts=2 sw=2 sts=2 et cindent: */
 /*
  * Copyright 2012-2013 Michael Steinert
  *
@@ -48,5 +47,10 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex) {
     return 1;
   }
   ReleaseSRWLockExclusive(mutex);
+  return 0;
+}
+
+int pthread_mutex_destroy(pthread_mutex_t *mutex) {
+  /* SRW's do not require destruction. */
   return 0;
 }

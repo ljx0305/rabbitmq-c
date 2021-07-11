@@ -1,4 +1,3 @@
-/* vim:set ft=c ts=2 sw=2 sts=2 et cindent: */
 /*
  * Portions created by Alan Antonuk are Copyright (c) 2013-2014 Alan Antonuk.
  * All Rights Reserved.
@@ -28,12 +27,15 @@
 #ifndef AMQP_THREAD_H
 #define AMQP_THREAD_H
 
-#ifndef WINVER
-  /* Windows Vista or newer */
-# define WINVER 0x0600
+#if !defined(WINVER) || defined(__MINGW32__) || defined(__MINGW64__)
+#ifdef WINVER
+#undef WINVER
+#endif
+/* Windows Vista or newer */
+#define WINVER 0x0600
 #endif
 #ifndef WIN32_LEAN_AND_MEAN
-# define WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 
@@ -45,5 +47,6 @@ DWORD pthread_self(void);
 int pthread_mutex_init(pthread_mutex_t *, void *attr);
 int pthread_mutex_lock(pthread_mutex_t *);
 int pthread_mutex_unlock(pthread_mutex_t *);
+int pthread_mutex_destroy(pthread_mutex_t *);
 
 #endif /* AMQP_THREAD_H */
